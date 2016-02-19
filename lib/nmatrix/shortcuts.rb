@@ -385,6 +385,136 @@ class NMatrix
       NMatrix.new(shape, random_values, {:dtype => :float64, :stype => :dense}.merge(opts))
     end
     alias :rand :random
+# 
+#  call-seq:
+#    magic(shape) -> NMatrix
+#
+#  The parameter is the dimension of the matrix.
+#
+#  Creates a +:dense+ NMatrix with the following properties:
+#    - An arrangement of the numbers from 1 to n^2 (n-squared) in the matrix, with each number occurring exactly once.
+#    - The sum of the entries of any row, any column, or any main diagonal is the same.
+#    - This sum must be n(n^2+1)/2.
+#   
+#  See: http://www.mathworks.com/help/matlab/ref/magic.html
+# 
+#  * *Arguments* :
+#   - +shape+ -> Array (or integer for square matrix) specifying the dimensions.
+#  * *Returns* :
+#   - NMatrix with the above given properties.
+#
+#  Examples:
+#       
+#    NMatrix.magic(3) # => [  [4, 9, 2]   [3, 5, 7]   [8, 1, 6] ]
+#    
+#    NMatrix.magic(4) # => [  [ 1, 15, 14,  4]
+#                             [12,  6,  7,  9]
+#                             [ 8, 10, 11,  5]
+#                             [13,  3,  2, 16] ]
+#                             
+#    NMatrix.magic(6) # => [  [31,  9,  2, 22, 27, 20]
+#                             [ 3, 32,  7, 21, 23, 25]
+#                             [35,  1,  6, 26, 19, 24]
+#                             [ 4, 36, 29, 13, 18, 11]
+#                             [30,  5, 34, 12, 14, 16]
+#                             [ 8, 28, 33, 17, 10, 15] ]
+#
+
+    def magic(shape)
+      if shape==2
+        raise(ArgumentError, "shape=2 is not allowed")
+      end
+      nm= NMatrix.new([shape,shape],0)
+      if shape%2!=0
+        oddMagic(nm,shape)
+      elsif shape%4 == 0
+        doublyEvenMagic(nm,shape)
+      else   
+        singlyEvenMagic(nm,shape)
+      end
+      nm
+    end
+    
+    def oddMagic(nm,shape)
+      row= shape-1
+      col= shape/2       
+      nm[row,col]= 1
+      for i in 2..shape*shape
+        if nm[(row+1)%shape,(col+1)%shape] == 0
+          row= (row+1)%shape
+          col= (col+1)%shape
+        else
+          row= (row-1+shape)%shape
+        end
+          nm[row,col]= i
+      end
+    end
+    
+    def doublyEvenMagic(nm,shape)
+      miniSqrnum = shape/4
+      cnt = 1     
+      invCnt = shape*shape
+      for i in 0..shape-1
+        for j in 0..shape-1
+          if j>=miniSqrnum && j<shape-miniSqrnum
+		    if i>=miniSqrnum && i<shape-miniSqrnum
+      	      nm[i,j] = cnt
+		    else 
+		      nm[i,j] = invCnt
+		    end
+		  elsif i<miniSqrnum || i>=shape-miniSqrnum
+		    nm[i,j]=cnt
+		  else
+            nm[i,j] = invCnt
+          end
+        cnt+=1
+        invCnt-=1  
+        end
+      end
+    end
+    
+    def singlyEvenMagic(nm,shape)
+      halfShape = shape/2
+	  k = (shape-2)/4
+	  swapCol= NMatrix.new([shape],0)
+      index=0 
+      miniMagic= NMatrix.new([halfShape,halfShape],0)
+      oddMagic(miniMagic,halfShape)
+      for i in 0..halfShape-1
+        for j in 0..halfShape-1
+          nm[i,j] = miniMagic[i,j]; 	  	
+      	  nm[i+halfShape,j+halfShape] = miniMagic[i,j]+halfShape*halfShape  
+          nm[i,j+halfShape] = miniMagic[i,j]+2*halfShape*halfShape      
+          nm[i+halfShape,j] = miniMagic[i,j]+3*halfShape*halfShape       
+        end  
+      end
+  
+      for i in 1..k
+        swapCol[index] = i
+        index+=1
+      end
+      
+      for i in shape-k+2..shape
+        swapCol[index] = i
+        index+=1
+      end 
+      
+      for i in 1..halfShape
+        for j in 1..index
+          temp=nm[i-1,swapCol[j-1]-1]
+          nm[i-1,swapCol[j-1]-1]=nm[i+halfShape-1,swapCol[j-1]-1]
+          nm[i+halfShape-1,swapCol[j-1]-1]=temp
+        end
+      end
+
+      temp=nm[k,0] 
+      nm[k,0]=nm[k+halfShape,0] 
+      nm[k+halfShape,0]=temp
+
+      temp=nm[k+halfShape,k]
+      nm[k+halfShape,k]=nm[k,k] 
+      nm[k,k]=temp
+    end
 
     #
     # call-seq:
